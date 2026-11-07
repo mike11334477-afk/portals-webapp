@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body style="background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
+    <h3>🔄 Перевыпуск ключа</h3>
+    <p style="text-align:center;opacity:0.7;">Нажми кнопку, чтобы передать данные боту</p>
+    <button onclick="sendData()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:20px;">
+        Отправить данные боту
+    </button>
+    <script>
+        const t = window.Telegram.WebApp;
+        t.expand();
+        function sendData() {
+            t.sendData(t.initData);
+        }
+    </script>
+</body>
+</html>
