@@ -1,20 +1,52 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body style="background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
-    <h3>🔄 Перевыпуск ключа</h3>
-    <p style="text-align:center;opacity:0.7;">Нажми кнопку, чтобы передать данные боту</p>
-    <button onclick="sendData()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:20px;">
+    <h3>🔄 Перевыпуск ключа Portals</h3>
+    <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Инициализация...</p>
+    
+    <button id="btn" onclick="sendViaLink()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">
         Отправить данные боту
     </button>
+
     <script>
         const t = window.Telegram.WebApp;
         t.expand();
-        function sendData() {
-            t.sendData(t.initData);
+        const statusEl = document.getElementById('status');
+        const btn = document.getElementById('btn');
+
+        // Проверка наличия initData
+        if (!t.initData || t.initData === "") {
+            statusEl.innerHTML = "❌ <b>Ошибка:</b><br>Откройте эту страницу через кнопку в Telegram-боте (/portals).<br>Прямой переход из браузера не поддерживается.";
+        } else {
+            statusEl.innerHTML = "✅ Telegram подключен.<br>Нажмите кнопку ниже для перевыпуска ключа.";
+            btn.style.display = "block";
+        }
+
+        function sendViaLink() {
+            statusEl.innerHTML = "⏳ Передача данных...";
+            
+            // Кодируем initData в безопасный для URL формат (Base64URL)
+            const encodedData = btoa(t.initData)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=/g, '');
+
+            // Получаем username бота из initDataUnsafe или хардкодим
+            const botUsername = t.initDataUnsafe?.bot?.username || 'aksdkadskdsabasdkbot';
+            
+            // Формируем Deep Link
+            const deepLink = `https://t.me/${botUsername}?start=${encodedData}`;
+            
+            // Открываем ссылку (Telegram перехватит её и запустит бота с payload)
+            t.openLink(deepLink);
+            
+            // Опционально: закрываем WebApp через секунду
+            setTimeout(() => t.close(), 1000);
         }
     </script>
 </body>
