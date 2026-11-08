@@ -7,10 +7,11 @@
 </head>
 <body style="background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
     <h3 id="title">🔑 Portals Key Getter</h3>
-    <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Инициализация...</p>
+    <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Проверка сессии...</p>
     
-    <button id="btn" onclick="startAuth()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;margin-top:10px;">
-        Начать авторизацию
+    <!-- Кнопка для ручного возврата, если авто-редирект не сработал -->
+    <button id="btn" onclick="goBackAndFetch()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;margin-top:10px;">
+        Я вошел! Забрать ключ
     </button>
 
     <script>
@@ -19,49 +20,50 @@
         const statusEl = document.getElementById('status');
         const btn = document.getElementById('btn');
         const NGROK_URL = "https://7793-31-76-55-178.ngrok-free.app/webhook";
+        
+        // Ссылка на НАШУ страницу (для возврата после авторизации)
+        const MY_URL = "https://mike11334477-afk.github.io/portals-webapp/";
 
         // Проверяем наличие initData
         if (!t.initData) {
             statusEl.innerHTML = "❌ Запустите через кнопку в Telegram боте (/portals).";
         } else {
-            // Сразу предлагаем начать авторизацию
-            statusEl.innerHTML = "⚠️ Требуется вход в Portals Market.<br>Нажмите кнопку ниже.";
-            btn.style.display = "block";
+            checkSession();
         }
 
-        function startAuth() {
-            statusEl.innerHTML = "🔄 Открываю страницу входа Portals...<br><br>Пожалуйста, войдите в аккаунт в открывшемся окне. После входа вернитесь сюда и нажмите 'Забрать ключ'.";
+        function checkSession() {
+            // Ищем куки авторизации Portals
+            const hasSession = document.cookie.includes('stel_ssid') || 
+                               document.cookie.includes('portals_') ||
+                               document.cookie.length > 100; 
             
-            // Кодируем initData для передачи в URL
-            const encodedData = encodeURIComponent(t.initData);
-            
-            // Открываем ссылку на дашборд/вход Portals. 
-            // Они должны распознать tgWebAppData и автоматически авторизовать.
-            const authUrl = `https://portal-market.com/dashboard?tgWebAppData=${encodedData}`;
-            
-            t.openLink(authUrl);
-            
-            // Меняем кнопку на "Забрать ключ" после попытки входа
-            setTimeout(() => {
-                statusEl.innerHTML = "✅ Если вы успешно вошли, нажмите кнопку ниже.";
-                btn.innerText = "Забрать API Key";
-                btn.onclick = fetchKey;
-            }, 3000);
+            if (hasSession) {
+                statusEl.innerHTML = "✅ Сессия найдена! Запрашиваю ключ...";
+                fetchKey();
+            } else {
+                statusEl.innerHTML = "⏳ Авторизация не обнаружена.<br>Перенаправляю на вход в Portals...";
+                
+                // ВАЖНО: Используем window.location.href для редиректа ВНУТРИ WebApp
+                // Добавляем параметр return_url, чтобы Portals знали, куда вернуть пользователя
+                const encodedInitData = encodeURIComponent(t.initData);
+                const returnUrl = encodeURIComponent(MY_URL);
+                
+                // Пробуем разные варианты URL входа
+                const authUrl = `https://portal-market.com/auth?tgWebAppData=${encodedInitData}&return_url=${returnUrl}`;
+                
+                // Редирект внутри текущего окна WebApp
+                setTimeout(() => {
+                    window.location.href = authUrl;
+                }, 1500);
+            }
+        }
+
+        // Функция для кнопки "Я вошел" (если пользователь вернулся вручную)
+        function goBackAndFetch() {
+            checkSession();
         }
 
         function fetchKey() {
-            statusEl.innerHTML = "⏳ Проверка сессии и запрос ключа...";
-            btn.disabled = true;
-
-            // Проверяем, появились ли куки после входа
-            if (!document.cookie || document.cookie.length < 10) {
-                statusEl.innerHTML = "❌ Куки не обнаружены. Возможно, вход не прошел.<br>Попробуйте нажать 'Начать авторизацию' снова.";
-                btn.innerText = "Попробовать снова";
-                btn.onclick = startAuth;
-                btn.disabled = false;
-                return;
-            }
-
             fetch(NGROK_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -74,12 +76,16 @@
                     setTimeout(() => t.close(), 3000);
                 } else {
                     statusEl.innerHTML = "❌ Ошибка API:<br>" + (d.details || d.msg);
-                    btn.disabled = false;
+                    // Если ошибка 401, предлагаем войти снова
+                    if (d.details && d.details.includes('401')) {
+                        btn.style.display = "block";
+                        btn.innerText = "Сессия истекла. Войти заново";
+                        btn.onclick = () => { window.location.href = `https://portal-market.com/auth?tgWebAppData=${encodeURIComponent(t.initData)}&return_url=${encodeURIComponent(MY_URL)}`; };
+                    }
                 }
             })
             .catch(e => {
                 statusEl.innerHTML = "❌ Сетевая ошибка:<br>" + e.message;
-                btn.disabled = false;
             });
         }
     </script>
