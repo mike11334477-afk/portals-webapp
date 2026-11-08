@@ -7,11 +7,10 @@
 </head>
 <body style="background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
     <h3 id="title">🔑 Portals Key Getter</h3>
-    <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Проверка окружения...</p>
+    <p id="status" style="text-align:center;opacity:0.7;max-width:80%;margin-bottom:20px;">Инициализация...</p>
     
-    <!-- Кнопка для ручного запуска, если авто не сработало -->
-    <button id="btn" onclick="forceAuth()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;margin-top:10px;">
-        Войти и получить ключ
+    <button id="btn" onclick="startAuth()" style="padding:15px 30px;font-size:18px;background:#3390ec;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;margin-top:10px;">
+        Начать авторизацию
     </button>
 
     <script>
@@ -21,46 +20,48 @@
         const btn = document.getElementById('btn');
         const NGROK_URL = "https://7793-31-76-55-178.ngrok-free.app/webhook";
 
-        // Функция проверки наличия авторизационных куки
-        function checkSession() {
-            // Ищем ключевые куки Portals (stel_ssid, portals_token и т.д.)
-            const hasSession = document.cookie.includes('stel_ssid') || 
-                               document.cookie.includes('portals_') ||
-                               document.cookie.length > 50; // Эвристика: если много куки, скорее всего залогинен
-            
-            if (hasSession) {
-                statusEl.innerHTML = "✅ Сессия найдена! Запрашиваю ключ...";
-                fetchKey();
-            } else {
-                statusEl.innerHTML = "⏳ Авторизация не обнаружена.<br>Перенаправляю на вход...";
-                // Даем 2 секунды на чтение initData перед редиректом
-                setTimeout(() => redirectToAuth(), 2000);
-            }
+        // Проверяем наличие initData
+        if (!t.initData) {
+            statusEl.innerHTML = "❌ Запустите через кнопку в Telegram боте (/portals).";
+        } else {
+            // Сразу предлагаем начать авторизацию
+            statusEl.innerHTML = "⚠️ Требуется вход в Portals Market.<br>Нажмите кнопку ниже.";
+            btn.style.display = "block";
         }
 
-        // Перенаправление на страницу авторизации Portals с initData
-        function redirectToAuth() {
+        function startAuth() {
+            statusEl.innerHTML = "🔄 Открываю страницу входа Portals...<br><br>Пожалуйста, войдите в аккаунт в открывшемся окне. После входа вернитесь сюда и нажмите 'Забрать ключ'.";
+            
             // Кодируем initData для передачи в URL
             const encodedData = encodeURIComponent(t.initData);
-            // Ссылка на вход/дашборд Portals. Она сама обработает tgWebAppData
+            
+            // Открываем ссылку на дашборд/вход Portals. 
+            // Они должны распознать tgWebAppData и автоматически авторизовать.
             const authUrl = `https://portal-market.com/dashboard?tgWebAppData=${encodedData}`;
             
-            // Открываем в том же окне (или новом, если порталы требуют)
             t.openLink(authUrl);
             
-            statusEl.innerHTML = "🔄 Пожалуйста, завершите вход в открывшемся окне.<br>Затем вернитесь сюда или обновите страницу.";
-            btn.style.display = "block";
-            btn.innerText = "Я вошел, забрать ключ";
-            btn.onclick = checkSession; // При нажатии снова проверим куки
+            // Меняем кнопку на "Забрать ключ" после попытки входа
+            setTimeout(() => {
+                statusEl.innerHTML = "✅ Если вы успешно вошли, нажмите кнопку ниже.";
+                btn.innerText = "Забрать API Key";
+                btn.onclick = fetchKey;
+            }, 3000);
         }
 
-        // Принудительный вызов авторизации по кнопке
-        function forceAuth() {
-            redirectToAuth();
-        }
-
-        // Запрос ключа через ngrok
         function fetchKey() {
+            statusEl.innerHTML = "⏳ Проверка сессии и запрос ключа...";
+            btn.disabled = true;
+
+            // Проверяем, появились ли куки после входа
+            if (!document.cookie || document.cookie.length < 10) {
+                statusEl.innerHTML = "❌ Куки не обнаружены. Возможно, вход не прошел.<br>Попробуйте нажать 'Начать авторизацию' снова.";
+                btn.innerText = "Попробовать снова";
+                btn.onclick = startAuth;
+                btn.disabled = false;
+                return;
+            }
+
             fetch(NGROK_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -73,24 +74,13 @@
                     setTimeout(() => t.close(), 3000);
                 } else {
                     statusEl.innerHTML = "❌ Ошибка API:<br>" + (d.details || d.msg);
-                    // Если ошибка 401, возможно сессия протухла - предлагаем войти снова
-                    if (d.details && d.details.includes('401')) {
-                        btn.style.display = "block";
-                        btn.innerText = "Сессия истекла. Войти заново";
-                        btn.onclick = redirectToAuth;
-                    }
+                    btn.disabled = false;
                 }
             })
             .catch(e => {
                 statusEl.innerHTML = "❌ Сетевая ошибка:<br>" + e.message;
+                btn.disabled = false;
             });
-        }
-
-        // Запуск проверки при загрузке
-        if (!t.initData) {
-            statusEl.innerHTML = "❌ Запустите через кнопку в Telegram боте.";
-        } else {
-            checkSession();
         }
     </script>
 </body>
